@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      # The test suite is deliberately hermetic: no network, and Spotify does not need to
+      # be installed or running. Everything that talks to either is behind a pure function
+      # that is fed captured payloads.
+      - name: Test
+        run: swift test
+
+      - name: Build
+        run: swift build -c release
+
+      # Smoke-tests the whole bundling path — Info.plist, generated icon, ad-hoc signature.
+      # Without --install, so nothing is copied to /Applications and no daemons restart.
+      - name: Assemble app bundle
+        run: ./build.sh
+
+      - name: Check the bundle came out intact
+        run: |
+          APP=build/Cuecard.app
+          test -x "$APP/Contents/MacOS/Cuecard"
+          test -f "$APP/Contents/Info.plist"
+          codesign --verify --deep --strict "$APP"
+          # Not asserted: icon generation needs a graphics context, which a headless runner
+          # may not provide. build.sh already treats that as non-fatal, so report it rather
+          # than fail the build over artwork.
+          if [ -f "$APP/Contents/Resources/AppIcon.icns" ]; then
+            echo "bundle OK (icon generated)"
+          else
+            echo "::warning::bundle OK but the icon was not generated on this runner"
+          fi

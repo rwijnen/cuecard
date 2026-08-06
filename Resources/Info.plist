@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleExecutable</key>
+	<string>Cuecard</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.robinwijnen.Cuecard</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>Cuecard</string>
+	<key>CFBundleDisplayName</key>
+	<string>Cuecard</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.music</string>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+
+	<!-- Menu bar only: no Dock icon, no window on launch. -->
+	<key>LSUIElement</key>
+	<true/>
+
+	<!-- Shown in the permission prompt the first time Cuecard skips a track or asks for
+	     album art. Detecting track changes uses Spotify's distributed notification and
+	     needs no permission, so this is only requested when something is clicked. -->
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Cuecard asks Spotify for the current track's album art and skips to the next track when you press Next.</string>
+
+	<key>NSHumanReadableCopyright</key>
+	<string>Now-playing cards for Spotify on macOS.</string>
+</dict>
+</plist>
