@@ -10,6 +10,7 @@ one-liner telling you what plays next. Menu bar only: no Dock icon, no window.
 [![macOS 14+](https://img.shields.io/badge/macOS-14%2B-black?logo=apple)](#development)
 [![Swift 6](https://img.shields.io/badge/Swift-6-orange?logo=swift&logoColor=white)](#development)
 [![No dependencies](https://img.shields.io/badge/dependencies-none-brightgreen)](Package.swift)
+[![Built with Claude Opus 5](https://img.shields.io/badge/built%20with-Claude%20Opus%205-8A63D2)](#ai-transparency)
 
 ```bash
 git clone https://github.com/rwijnen/cuecard.git
@@ -18,6 +19,10 @@ cd cuecard && ./build.sh --install
 
 Ten seconds, no Xcode needed — the Command Line Tools are enough. macOS 14+, Apple silicon
 or Intel.
+
+> **This app was vibecoded.** Effectively all of the code, tests and documentation were
+> written by Claude Opus 5 in Claude Code. See [AI transparency](#ai-transparency) for what
+> that means in practice and what has and has not been verified.
 
 ---
 
@@ -205,3 +210,42 @@ Logging goes through one subsystem:
 ```bash
 log stream --predicate 'subsystem == "com.robinwijnen.Cuecard"'
 ```
+
+## AI transparency
+
+Cuecard was vibecoded. Every Swift file, every test, the icon generator, the build script
+and this README were written by **Claude Opus 5** running in
+[Claude Code](https://claude.com/claude-code), from prompts. There is no meaningful hand-written
+code in this repository.
+
+The human contribution was direction and judgement: deciding what the app should be, choosing
+between the approaches offered, rejecting the ones that were wrong, running it on real
+hardware, and saying when the result looked wrong. Several of the design decisions documented
+above — the presentation styles, keeping the Web API optional, the first-run flow — came from
+that side of the conversation, not from the model.
+
+**What has been verified**
+
+- 74 automated tests, run in CI on every push. They are hermetic: no network, and Spotify
+  need not be installed.
+- The whole pipeline exercised against a real Spotify client on a 14-inch MacBook Pro (M3
+  Pro): real track-change broadcasts detected, real skips issued, notifications delivered,
+  the notch card's window frame checked against the geometry it was supposed to produce.
+- Notifications confirmed working end to end, including the album-art attachment and the
+  up-next line.
+
+**What has not**
+
+- One machine, one macOS version (26.5), one Spotify version. Nothing here has been tested
+  across a range of hardware, display arrangements or locales — though the locale-dependent
+  AppleScript bug above was found and fixed precisely because that assumption broke once.
+- No external code review or security audit.
+- Parts of the visual result were checked by a human eye rather than by the model: this
+  machine grants no Screen Recording permission, so the model could verify window geometry
+  numerically but could not see what it had drawn. Where it guessed at appearance it was
+  sometimes wrong, and was corrected by screenshots from the human side.
+
+Treat it as what it is: a small, well-tested personal tool that reads your Spotify state and
+draws a card, published in case it is useful. Read the source before you trust it — about
+3,200 lines under `Sources`, plus 850 of tests, deliberately commented to explain *why*
+rather than what.
