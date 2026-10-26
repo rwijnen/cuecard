@@ -28,8 +28,8 @@ or Intel.
 
 ![The notch card: album art, title, artist, skip button, and the up-next line](Docs/notch-card.png)
 
-*Shown with Reduce Transparency on. Normally the card is Liquid Glass on macOS 26 and later,
-and live vibrancy before that — both sample the desktop behind the card, which cannot be
+*Shown with Reduce Transparency on. Normally the card is clear Liquid Glass on macOS 26
+and later, and live vibrancy before that — both sample the desktop behind the card, which cannot be
 captured offscreen.*
 
 The menu bar icon's menu shows the same cover, with title, artist and album, whichever
@@ -54,14 +54,21 @@ and centres the card on it. Clicks in the transparent strip above the card pass 
 it never eats a click meant for the menu bar.
 
 On macOS 26 and later the card, its skip button and the custom pieces of Settings are
-Liquid Glass (`glassEffect`). Before that the card is real vibrancy (`NSVisualEffectView`,
-`.behindWindow`). Either way a gentle scrim sits between the material and the text so white
-text stays legible against a bright wallpaper — glass on its own comes out a flat mid-grey
-over a white window, and a darker glass tint barely changes that — and an opaque fill
-replaces both under Reduce Transparency. One non-obvious requirement for the vibrancy path:
-the effect view's `state` must be `.active`, because the card lives in a non-activating
-panel that is never key and the default `.followsWindowActiveState` would render it
-permanently flat.
+Liquid Glass (`glassEffect`). The card uses the **clear** variant — see-through, with the
+backdrop bent at the edges, as on the iPhone — and white text with a soft shadow. Regular
+glass, the default, reads as a milky frosted pane by comparison. It was chosen by rendering
+the options side by side over a wallpaper, a photo and a light window, which also showed
+what to avoid: any fill between the glass and the text is drawn *over* the glass and
+flattens it into a grey slab. macOS 27's own refinements (the darker edge, brighter
+highlights, and the Liquid Glass transparency slider in Settings) apply on top
+automatically.
+
+Before macOS 26 the card is dark vibrancy (`NSVisualEffectView`, `.behindWindow`) with a
+gentle scrim so white text stays legible against a bright wallpaper, and an opaque fill
+replaces either look under Reduce Transparency. One non-obvious requirement for the
+vibrancy path: the effect view's `state` must be `.active`, because the card lives in a
+non-activating panel that is never key and the default `.followsWindowActiveState` would
+render it permanently flat.
 
 The glass code is guarded by `#if compiler(>=6.2)` as well as `#available(macOS 26, *)`,
 so it still compiles — to the vibrancy look — with an SDK older than 26.

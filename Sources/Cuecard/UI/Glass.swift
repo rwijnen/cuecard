@@ -6,21 +6,37 @@ import SwiftUI
 /// as old as 14. `compiler(>=6.2)` covers the SDK it is built with: the glass API does not
 /// exist before the macOS 26 SDK, and both CI and anyone building with older Command Line
 /// Tools would otherwise fail to compile rather than fall back.
+enum LiquidGlass {
+    /// Whether `glassSurface` will draw glass rather than its fallback, for views that
+    /// lay out differently on glass.
+    static var isAvailable: Bool {
+        #if compiler(>=6.2)
+        if #available(macOS 26, *) { return true }
+        #endif
+        return false
+    }
+}
+
 extension View {
     /// A glass surface in `shape`, or `fallback` drawn behind the view before macOS 26.
+    ///
+    /// `clear` is the see-through variant — what shows through is only lightly blurred
+    /// and bent at the edges, rather than frosted. Meant for content over a busy backdrop,
+    /// with bold, light text.
     ///
     /// `tint` is a hint, not a fill: glass shifts the colour of what shows through it,
     /// so a tint reads as a wash over the desktop rather than as a painted background.
     @ViewBuilder
     func glassSurface<S: Shape, Fallback: View>(
         in shape: S,
+        clear: Bool = false,
         tint: Color? = nil,
         interactive: Bool = false,
         @ViewBuilder fallback: () -> Fallback
     ) -> some View {
         #if compiler(>=6.2)
         if #available(macOS 26, *) {
-            glassEffect(Glass.regular.tint(tint).interactive(interactive), in: shape)
+            glassEffect((clear ? Glass.clear : Glass.regular).tint(tint).interactive(interactive), in: shape)
         } else {
             background { fallback() }
         }

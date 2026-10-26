@@ -72,9 +72,14 @@ struct NotchCardView: View {
         .offset(y: model.revealed ? 0 : -metrics.totalHeight)
         .opacity(model.revealed ? 1 : 0)
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: model.revealed)
-        // The card sits against the notch, where light glass would look wrong whatever
-        // the system appearance is.
+        // White text in every look, so the card reads the same whatever the system
+        // appearance: clear glass is designed for light content, and the vibrancy and
+        // opaque fallbacks are dark, against the notch.
         .environment(\.colorScheme, .dark)
+    }
+
+    private var usesGlass: Bool {
+        LiquidGlass.isAvailable && !reduceTransparency && !model.opaqueBackground
     }
 
     private func card(_ metrics: NotchCardMetrics) -> some View {
@@ -89,8 +94,8 @@ struct NotchCardView: View {
         .onHover { model.onHover($0) }
     }
 
-    /// Liquid Glass on macOS 26 and later; vibrancy with a scrim before that; an opaque
-    /// fill whenever transparency is unwanted.
+    /// Liquid Glass on macOS 26 and later; dark vibrancy with a scrim before that; an
+    /// opaque fill whenever transparency is unwanted.
     @ViewBuilder
     private func surface(_ card: some View, in shape: RoundedRectangle) -> some View {
         if reduceTransparency || model.opaqueBackground {
@@ -101,29 +106,29 @@ struct NotchCardView: View {
                     .shadow(color: .black.opacity(0.34), radius: 14, y: 6)
             }
         } else {
-            card
-                // The material alone is not enough: over a bright window the white text
-                // loses contrast, and glass comes out a flat mid-grey that a darker tint
-                // barely moves. A gentle top-down scrim between the material and the text
-                // fixes both, and makes the card read as an extension of the notch rather
-                // than a pane of the desktop.
-                .background {
+            // Clear glass, the see-through variant, with nothing layered on it: any fill
+            // between the glass and the text is drawn over the glass and flattens it into
+            // a grey panel. Chosen by comparing variants side by side over a wallpaper, a
+            // photo and a light window — regular glass reads as a milky frosted pane, not
+            // the iPhone's glass. The text shadow below carries legibility instead.
+            card.glassSurface(in: shape, clear: true) {
+                ZStack {
+                    VisualEffectBackground()
+                    // Vibrancy alone is not enough: over a bright wallpaper the white
+                    // text loses contrast. A gentle top-down scrim fixes that without
+                    // turning the card back into a flat panel.
                     LinearGradient(
-                        colors: [.black.opacity(0.40), .black.opacity(0.23)],
+                        colors: [.black.opacity(0.42), .black.opacity(0.24)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
-                    .clipShape(shape)
                 }
-                // Glass draws its own lit edge and shadow; vibrancy needs both added.
-                .glassSurface(in: shape, tint: .black.opacity(0.3)) {
-                    VisualEffectBackground()
-                        .clipShape(shape)
-                        .overlay { litEdge(shape) }
-                        // The window itself draws no shadow — it would trace the full
-                        // rectangle, transparent notch strip included.
-                        .shadow(color: .black.opacity(0.34), radius: 14, y: 6)
-                }
+                .clipShape(shape)
+                .overlay { litEdge(shape) }
+                // The window itself draws no shadow — it would trace the full rectangle,
+                // transparent notch strip included. Glass brings its own.
+                .shadow(color: .black.opacity(0.34), radius: 14, y: 6)
+            }
         }
     }
 
@@ -147,11 +152,12 @@ struct NotchCardView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(model.cue?.track.title ?? "Nothing playing")
                         .font(.system(size: 13.5, weight: .semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.primary)
                         .lineLimit(1)
                     Text(model.cue?.track.artist ?? "")
                         .font(.system(size: 11.5))
-                        .foregroundStyle(.white.opacity(0.68))
+                        // Brighter than `.secondary`, which disappears on clear glass.
+                        .foregroundStyle(.white.opacity(0.8))
                         .lineLimit(1)
                 }
                 // Tapping the text or artwork brings Spotify forward; the button below
@@ -164,9 +170,10 @@ struct NotchCardView: View {
             }
             upNext
         }
-        // Text over a live blur needs its own shadow to stay readable when the wallpaper
-        // behind it is busy.
-        .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+        // White text over see-through glass or a live blur needs its own shadow to stay
+        // readable when what is behind it is bright or busy. Glass needs less: it
+        // diffuses the backdrop more than vibrancy does.
+        .shadow(color: .black.opacity(usesGlass ? 0.35 : 0.5), radius: usesGlass ? 2 : 3, y: 1)
     }
 
     private var artwork: some View {
@@ -175,10 +182,10 @@ struct NotchCardView: View {
                 Image(nsImage: image).resizable().interpolation(.high)
             } else {
                 ZStack {
-                    Color.white.opacity(0.10)
+                    Color.primary.opacity(0.10)
                     Image(systemName: "music.note")
                         .font(.system(size: 17))
-                        .foregroundStyle(.white.opacity(0.45))
+                        .foregroundStyle(.secondary)
                 }
             }
         }
@@ -186,7 +193,7 @@ struct NotchCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: Self.artworkCornerRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: Self.artworkCornerRadius, style: .continuous)
-                .strokeBorder(.white.opacity(0.12), lineWidth: 0.6)
+                .strokeBorder(.primary.opacity(0.12), lineWidth: 0.6)
         }
     }
 
@@ -194,12 +201,12 @@ struct NotchCardView: View {
         Button(action: model.onSkip) {
             Image(systemName: "forward.end.fill")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.95))
+                .foregroundStyle(.primary)
                 .frame(width: 32, height: 32)
                 .contentShape(Circle())
                 // Interactive glass, so the button answers the pointer the way system
                 // glass controls do.
-                .glassSurface(in: Circle(), interactive: true) {
+                .glassSurface(in: Circle(), clear: true, interactive: true) {
                     Circle()
                         .fill(.white.opacity(0.16))
                         .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 0.6))
@@ -223,7 +230,7 @@ struct NotchCardView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .foregroundStyle(.white.opacity(0.58))
+            .foregroundStyle(.white.opacity(0.75))
             .padding(.leading, Self.artworkSize + Self.artworkGap)
         }
     }
