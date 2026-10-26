@@ -10,7 +10,7 @@ struct Cue {
     var next: Track?
     /// Staged file, for `UNNotificationAttachment`.
     var artworkFile: URL?
-    /// Decoded image, for the notch card.
+    /// Decoded image, for the notch card. Also kept for the menu, whatever the style.
     var artworkImage: NSImage?
 }
 

@@ -61,8 +61,12 @@ struct SetupWizardView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 14) {
             Image(systemName: "music.note.list")
-                .font(.system(size: 34, weight: .light))
+                .font(.system(size: 30, weight: .light))
                 .foregroundStyle(.tint)
+                .frame(width: 64, height: 64)
+                .glassSurface(in: Circle(), tint: Color.accentColor.opacity(0.18)) {
+                    Circle().fill(Color.accentColor.opacity(0.10))
+                }
             Text("Cuecard").font(.system(size: 22, weight: .semibold))
             Text("A card whenever a new song starts: cover, title, artist, a button to skip "
                  + "it, and what is coming next.")
@@ -97,6 +101,7 @@ struct SetupWizardView: View {
             NotificationWarning(availability: notifications, preferences: preferences)
 
             Button("Preview it") { monitor.showCurrentTrackNow() }
+                .glassButtonStyle()
                 .padding(.top, 2)
             Text("Uses whatever Spotify is playing, or a sample if it is idle.")
                 .font(.system(size: 10.5))
@@ -138,6 +143,7 @@ struct SetupWizardView: View {
                 Button("Back") {
                     step = Step(rawValue: step.rawValue - 1) ?? .welcome
                 }
+                .glassButtonStyle()
             }
 
             switch step {
@@ -146,13 +152,16 @@ struct SetupWizardView: View {
                     step = Step(rawValue: step.rawValue + 1) ?? .upNext
                 }
                 .keyboardShortcut(.defaultAction)
+                .glassButtonStyle(prominent: true)
             case .upNext:
                 // Skipping is a first-class exit here, not a fine-print escape hatch.
                 if !auth.isConnected {
                     Button("Skip for now") { onFinish() }
+                        .glassButtonStyle()
                 }
                 Button("Done") { onFinish() }
                     .keyboardShortcut(.defaultAction)
+                    .glassButtonStyle(prominent: true)
             }
         }
     }

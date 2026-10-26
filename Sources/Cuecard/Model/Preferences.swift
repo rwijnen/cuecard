@@ -39,6 +39,9 @@ final class Preferences: ObservableObject {
         static let playSound = "playSound"
         static let clientID = "spotifyClientID"
         static let completedSetup = "completedSetup"
+        static let checkForUpdates = "checkForUpdates"
+        static let skippedUpdateVersion = "skippedUpdateVersion"
+        static let lastUpdateCheck = "lastUpdateCheck"
     }
 
     private let defaults: UserDefaults
@@ -53,6 +56,7 @@ final class Preferences: ObservableObject {
             Key.notifyOnResume: false,
             Key.playSound: false,
             Key.completedSetup: false,
+            Key.checkForUpdates: true,
         ])
         style = PresentationStyle(rawValue: defaults.string(forKey: Key.style) ?? "") ?? .notification
         showArtwork = defaults.bool(forKey: Key.showArtwork)
@@ -62,6 +66,9 @@ final class Preferences: ObservableObject {
         playSound = defaults.bool(forKey: Key.playSound)
         clientID = defaults.string(forKey: Key.clientID) ?? ""
         completedSetup = defaults.bool(forKey: Key.completedSetup)
+        checkForUpdates = defaults.bool(forKey: Key.checkForUpdates)
+        skippedUpdateVersion = defaults.string(forKey: Key.skippedUpdateVersion)
+        lastUpdateCheck = defaults.object(forKey: Key.lastUpdateCheck) as? Date
     }
 
     @Published var style: PresentationStyle {
@@ -99,5 +106,20 @@ final class Preferences: ObservableObject {
 
     @Published var completedSetup: Bool {
         didSet { defaults.set(completedSetup, forKey: Key.completedSetup) }
+    }
+
+    /// Daily check against GitHub Releases. Checking by hand works either way.
+    @Published var checkForUpdates: Bool {
+        didSet { defaults.set(checkForUpdates, forKey: Key.checkForUpdates) }
+    }
+
+    /// Release tag the user asked not to be reminded about. A later release is offered
+    /// as normal.
+    var skippedUpdateVersion: String? {
+        didSet { defaults.set(skippedUpdateVersion, forKey: Key.skippedUpdateVersion) }
+    }
+
+    var lastUpdateCheck: Date? {
+        didSet { defaults.set(lastUpdateCheck, forKey: Key.lastUpdateCheck) }
     }
 }

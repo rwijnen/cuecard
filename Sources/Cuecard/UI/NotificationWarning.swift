@@ -4,6 +4,8 @@ import SwiftUI
 /// notifications. Says what is happening, why, and offers the one-click way out — an
 /// unexplained fallback would be worse than none.
 struct NotificationWarning: View {
+    private static let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+
     @ObservedObject var availability: NotificationAvailability
     @ObservedObject var preferences: Preferences
 
@@ -22,14 +24,14 @@ struct NotificationWarning: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Button("Switch to notch cards") { preferences.style = .notch }
                     .controlSize(.small)
+                    .glassButtonStyle()
             }
             .padding(10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .strokeBorder(Color.orange.opacity(0.35), lineWidth: 1)
-            )
+            .glassSurface(in: Self.shape, tint: .orange.opacity(0.22)) {
+                Self.shape.fill(Color.orange.opacity(0.10))
+            }
+            .overlay(Self.shape.strokeBorder(Color.orange.opacity(0.35), lineWidth: 1))
         }
     }
 }

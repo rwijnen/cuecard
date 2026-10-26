@@ -13,6 +13,9 @@ final class NowPlayingMonitor: ObservableObject {
     /// What the menu bar shows. Mirrors the last announced track, not every snapshot.
     @Published private(set) var current: Track?
     @Published private(set) var upNext: Track?
+    /// Cover for `current`, for the menu. Kept whichever style is active, because the menu
+    /// shows it either way.
+    @Published private(set) var currentArtwork: NSImage?
     @Published private(set) var state: PlayerState = .notRunning
 
     /// Exposed so Settings and the wizard can explain a fallback rather than let the user
@@ -69,6 +72,11 @@ final class NowPlayingMonitor: ObservableObject {
             current = snapshot.track
             detector.prime(snapshot)
             await refreshUpNext()
+            if preferences.showArtwork, let track = snapshot.track {
+                let image = await artwork.image(for: track.artworkURL)
+                // A track change may have been announced while this was downloading.
+                if current?.identity == track.identity { currentArtwork = image }
+            }
         }
 
         observer.start { [weak self] snapshot in
@@ -115,7 +123,10 @@ final class NowPlayingMonitor: ObservableObject {
 
     private func handle(_ snapshot: PlaybackSnapshot) {
         state = snapshot.state
-        if snapshot.state != .playing, snapshot.track == nil { current = nil }
+        if snapshot.state != .playing, snapshot.track == nil {
+            current = nil
+            currentArtwork = nil
+        }
 
         guard let track = detector.evaluate(snapshot) else { return }
         Log.spotify.info("announcing \(track.oneLine, privacy: .public)")
@@ -160,18 +171,22 @@ final class NowPlayingMonitor: ObservableObject {
 
         current = track
         upNext = next
+        currentArtwork = nil
 
         var cue = Cue(track: track, next: next)
         if preferences.showArtwork {
-            // Each style wants the art in a different form, and both are expensive
-            // enough not to prepare speculatively — so this has to know which presenter
-            // will actually be used, fallback included.
-            switch effectiveStyle {
-            case .notification: cue.artworkFile = await artwork.attachmentCopy(for: track.artworkURL)
-            case .notch: cue.artworkImage = await artwork.image(for: track.artworkURL)
+            // The decoded image is always wanted — the notch card draws it and the menu
+            // shows it whichever style is active. A notification also needs a file it can
+            // take ownership of, which is only worth staging when one will be posted, so
+            // this has to know which presenter will actually be used, fallback included.
+            // Both come from the same disk cache, so the cover is downloaded once.
+            cue.artworkImage = await artwork.image(for: track.artworkURL)
+            if effectiveStyle == .notification {
+                cue.artworkFile = await artwork.attachmentCopy(for: track.artworkURL)
             }
         }
         guard !Task.isCancelled else { return }
+        currentArtwork = cue.artworkImage
         present(cue)
     }
 

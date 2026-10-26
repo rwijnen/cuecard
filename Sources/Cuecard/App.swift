@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var auth: SpotifyAuth!
     private var monitor: NowPlayingMonitor!
     private var menuBar: MenuBarController!
+    private var updates: UpdateChecker!
     private var settingsWindow: PanelWindow<SettingsView>!
     private var wizardWindow: PanelWindow<SetupWizardView>?
     /// Quitting closes the wizard window too, and that must not count as getting through
@@ -30,24 +31,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         auth = SpotifyAuth(preferences: preferences)
         monitor = NowPlayingMonitor(preferences: preferences, auth: auth)
+        updates = UpdateChecker(preferences: preferences)
 
         settingsWindow = PanelWindow(
             title: "Cuecard Settings",
             defaultSize: SettingsView.windowSize
-        ) { [preferences, auth, monitor] in
+        ) { [preferences, auth, monitor, updates] in
             SettingsView(
                 preferences: preferences,
                 auth: auth!,
                 notifications: monitor!.notifications,
+                updates: updates!,
                 monitor: monitor!
             )
         }
 
-        menuBar = MenuBarController(monitor: monitor, preferences: preferences) { [weak self] in
+        menuBar = MenuBarController(
+            monitor: monitor,
+            preferences: preferences,
+            updates: updates
+        ) { [weak self] in
             self?.settingsWindow.show()
         }
 
         monitor.start()
+        updates.start()
 
         if !preferences.completedSetup {
             showWizard()

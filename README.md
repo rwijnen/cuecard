@@ -28,8 +28,12 @@ or Intel.
 
 ![The notch card: album art, title, artist, skip button, and the up-next line](Docs/notch-card.png)
 
-*Shown with Reduce Transparency on. Normally the card's background is live macOS vibrancy —
-the desktop behind it, blurred — which cannot be captured offscreen.*
+*Shown with Reduce Transparency on. Normally the card is clear Liquid Glass on macOS 26
+and later, and live vibrancy before that — both sample the desktop behind the card, which cannot be
+captured offscreen.*
+
+The menu bar icon's menu shows the same cover, with title, artist and album, whichever
+style is chosen. Clicking it brings Spotify forward.
 
 ## Two places the card can appear
 
@@ -49,11 +53,25 @@ than assuming a size — a 14-inch M3 Pro reports 185 points, not the 200 usuall
 and centres the card on it. Clicks in the transparent strip above the card pass through, so
 it never eats a click meant for the menu bar.
 
-The background is real vibrancy (`NSVisualEffectView`, `.behindWindow`), with a gentle scrim
-over it so white text stays legible against a bright wallpaper, and it switches to an opaque
-fill under Reduce Transparency. One non-obvious requirement: the effect view's `state` must
-be `.active`, because the card lives in a non-activating panel that is never key and the
-default `.followsWindowActiveState` would render it permanently flat.
+On macOS 26 and later the card, its skip button and the custom pieces of Settings are
+Liquid Glass (`glassEffect`). The card uses the **clear** variant — see-through, with the
+backdrop bent at the edges, as on the iPhone — and white text with a soft shadow. Regular
+glass, the default, reads as a milky frosted pane by comparison. It was chosen by rendering
+the options side by side over a wallpaper, a photo and a light window, which also showed
+what to avoid: any fill between the glass and the text is drawn *over* the glass and
+flattens it into a grey slab. macOS 27's own refinements (the darker edge, brighter
+highlights, and the Liquid Glass transparency slider in Settings) apply on top
+automatically.
+
+Before macOS 26 the card is dark vibrancy (`NSVisualEffectView`, `.behindWindow`) with a
+gentle scrim so white text stays legible against a bright wallpaper, and an opaque fill
+replaces either look under Reduce Transparency. One non-obvious requirement for the
+vibrancy path: the effect view's `state` must be `.active`, because the card lives in a
+non-activating panel that is never key and the default `.followsWindowActiveState` would
+render it permanently flat.
+
+The glass code is guarded by `#if compiler(>=6.2)` as well as `#available(macOS 26, *)`,
+so it still compiles — to the vibrancy look — with an SDK older than 26.
 
 On a display without a notch — an external monitor — the card is anchored to `visibleFrame`
 so it hangs below that display's menu bar rather than on top of it.
@@ -174,22 +192,67 @@ on pause, resume and seek, and the poller re-reports the same track every few se
 | Notch style | None |
 
 Cuecard never plays anything on its own, never writes to your library, and talks to no
-network host but `accounts.spotify.com`, `api.spotify.com` and Spotify's image CDN.
+network host but `accounts.spotify.com`, `api.spotify.com`, Spotify's image CDN, and
+GitHub for updates (`api.github.com`, plus GitHub's download host when you install one).
+
+## Updates
+
+Once a day Cuecard asks GitHub for the latest
+[release](https://github.com/rwijnen/cuecard/releases). If it is newer, it says so and
+offers **Install and Relaunch**, **Later** or **Skip This Version**. Settings → Updates has
+the switch for the daily check and a **Check Now** button; the menu has **Check for
+Updates…**, which becomes **Update to Cuecard X…** once one is found.
+
+Installing downloads the release's `Cuecard.zip` and replaces the running app only if every
+check passes, in this order — any failure leaves the installed copy untouched and offers
+the release page instead:
+
+1. The running copy carries a Team Identifier. An ad-hoc build has none, so there is
+   nothing to compare a download against, and it is never replaced automatically.
+2. The download's signature is intact and chains to an Apple-issued certificate of **the
+   same team** (`anchor apple generic and certificate leaf[subject.OU] = "<team>"`) with
+   the same bundle identifier. HTTPS proves the file came from GitHub; this proves it was
+   built by whoever holds your certificate.
+3. The bundle's version is the one the release announced.
+
+The swap itself is one `FileManager.replaceItemAt` on the same volume, then a detached
+shell waits for the old process to exit and opens the new one.
+
+### Publishing a release
+
+Push a tag and the [release workflow](.github/workflows/release.yml) builds a universal
+app, stamps the tag's version into it, signs it, and publishes `Cuecard.zip`:
+
+```bash
+git tag v1.1.0 && git push origin v1.1.0
+```
+
+It needs two repository secrets: `SIGNING_CERTIFICATE_P12` (base64 of a `.p12` export of
+your Apple Development or Developer ID Application certificate with its private key) and
+`SIGNING_CERTIFICATE_PASSWORD`. Use a certificate from the same team as your local builds,
+or the updater will rightly refuse the result. The workflow fails rather than publish an
+unsigned build, since every installed copy would reject it.
+
+The archive is not notarized. That does not matter to the in-app updater, which downloads
+without the quarantine flag, but someone downloading `Cuecard.zip` in a browser will meet
+Gatekeeper.
 
 ## Development
 
 ```bash
-swift test          # 71 tests, no network, no Spotify needed
+swift test          # 82 tests, no network, no Spotify needed
 swift build
 ./build.sh          # build/Cuecard.app
 ./build.sh --debug
+./build.sh --universal --version 1.2.0   # what the release workflow runs
 ```
 
 The parts worth knowing about are separated so they can be tested as pure functions:
 `TrackChangeDetector` (the announce/stay-quiet rules), `NotchGeometry` (where the card
 goes, including the real measurements from a 14-inch M3 Pro whose primary display is an
 external monitor, so the built-in panel has a negative frame origin), `SpotifyEvents`
-(broadcast payload parsing), `SpotifyScripting.parseSnapshot` and `SpotifyWebAPI.decodeQueue`.
+(broadcast payload parsing), `SpotifyScripting.parseSnapshot`, `SpotifyWebAPI.decodeQueue`,
+and `AppVersion` / `GitHubRelease` (version ordering and release parsing for the updater).
 
 `swift run Cuecard` works for iterating on the notch card, and falls back to it
 automatically: several system frameworks — `SMAppService`, `UNUserNotificationCenter` —
@@ -226,7 +289,7 @@ that side of the conversation, not from the model.
 
 **What has been verified**
 
-- 74 automated tests, run in CI on every push. They are hermetic: no network, and Spotify
+- 82 automated tests, run in CI on every push. They are hermetic: no network, and Spotify
   need not be installed.
 - The whole pipeline exercised against a real Spotify client on a 14-inch MacBook Pro (M3
   Pro): real track-change broadcasts detected, real skips issued, notifications delivered,
@@ -240,6 +303,11 @@ that side of the conversation, not from the model.
   across a range of hardware, display arrangements or locales — though the locale-dependent
   AppleScript bug above was found and fixed precisely because that assumption broke once.
 - No external code review or security audit.
+- The updater has not yet installed a real release end to end, because none had been
+  published when it was written. Its signature check was exercised against real bundles —
+  accepting a genuine one after a `ditto` round trip, rejecting a wrong team, a tampered
+  file and an ad-hoc re-sign — but the download-swap-relaunch sequence has only been
+  reasoned about.
 - Parts of the visual result were checked by a human eye rather than by the model: this
   machine grants no Screen Recording permission, so the model could verify window geometry
   numerically but could not see what it had drawn. Where it guessed at appearance it was
