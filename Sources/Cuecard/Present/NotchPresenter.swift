@@ -51,7 +51,11 @@ final class NotchPresenter: Presenter {
         let screen = Self.preferredScreen()
         let panel = ensurePanel()
 
-        model.metrics = Self.metrics(for: screen, cardWidth: model.metrics.cardWidth)
+        model.metrics = Self.metrics(
+            for: screen,
+            cardWidth: model.metrics.cardWidth,
+            hasUpNext: cue.next != nil
+        )
         model.cue = cue
 
         let frame = NotchGeometry.cardFrame(
@@ -149,9 +153,12 @@ final class NotchPresenter: Presenter {
             ?? NSScreen.screens[0]
     }
 
-    static func metrics(for screen: NSScreen, cardWidth: CGFloat) -> NotchCardMetrics {
+    static func metrics(for screen: NSScreen, cardWidth: CGFloat, hasUpNext: Bool) -> NotchCardMetrics {
         var metrics = NotchCardMetrics()
         metrics.cardWidth = min(cardWidth, screen.frame.width - 32)
+        metrics.bodyHeight = hasUpNext
+            ? NotchCardMetrics.bodyHeightWithUpNext
+            : NotchCardMetrics.bodyHeightWithoutUpNext
         metrics.notchStripHeight = screen.safeAreaInsets.top
         metrics.notchWidth = NotchGeometry.notchWidth(
             auxiliaryTopLeft: screen.auxiliaryTopLeftArea,

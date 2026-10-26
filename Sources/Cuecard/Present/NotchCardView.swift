@@ -6,7 +6,11 @@ struct NotchCardMetrics: Equatable {
     var cardWidth: CGFloat = 428
     /// Sized to the content: artwork row, the up-next line, and the padding around them.
     /// Any more and the card has a dead strip along the bottom.
-    var bodyHeight: CGFloat = 92
+    var bodyHeight: CGFloat = Self.bodyHeightWithUpNext
+    static let bodyHeightWithUpNext: CGFloat = 92
+    /// Just the artwork row and its padding, for a cue with no up-next line — the full
+    /// height would leave a third of the card empty.
+    static let bodyHeightWithoutUpNext: CGFloat = 70
     /// Height of the region the system reserves at the top of the display — the physical
     /// notch. Zero on displays without one.
     var notchStripHeight: CGFloat = 0
@@ -49,6 +53,8 @@ struct NotchCardView: View {
     /// System-wide Reduce Transparency. When it is on, macOS expects vibrancy to be
     /// replaced by an opaque fill rather than merely dimmed.
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    /// The system appearance. Glass follows it; see `body`.
+    @Environment(\.colorScheme) private var systemColorScheme
 
     /// Artwork edge and the gap after it — the up-next line is indented by this so it
     /// lines up with the title rather than sitting under the cover.
@@ -72,14 +78,27 @@ struct NotchCardView: View {
         .offset(y: model.revealed ? 0 : -metrics.totalHeight)
         .opacity(model.revealed ? 1 : 0)
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: model.revealed)
-        // White text in every look, so the card reads the same whatever the system
-        // appearance: clear glass is designed for light content, and the vibrancy and
-        // opaque fallbacks are dark, against the notch.
-        .environment(\.colorScheme, .dark)
+        // Glass follows the system appearance, as system glass does. Forced dark so that
+        // white text works, it turns a flat grey over a light window — the most common
+        // thing under the notch — where light glass with dark text all but disappears
+        // into it instead. The vibrancy and opaque fallbacks were designed dark, against
+        // the notch, and stay that way.
+        .environment(\.colorScheme, usesGlass ? systemColorScheme : .dark)
     }
 
     private var usesGlass: Bool {
         LiquidGlass.isAvailable && !reduceTransparency && !model.opaqueBackground
+    }
+
+    /// Dark text on light glass. Everything else — dark glass, vibrancy, opaque — has
+    /// white text, which needs a shadow and brighter secondary lines to survive a bright
+    /// or busy backdrop.
+    private var isLightGlass: Bool { usesGlass && systemColorScheme == .light }
+
+    /// `.secondary` on light glass. On dark glass it all but disappears, so white is
+    /// used at a fixed, brighter opacity there.
+    private var secondaryText: AnyShapeStyle {
+        isLightGlass ? AnyShapeStyle(.secondary) : AnyShapeStyle(.white.opacity(0.8))
     }
 
     private func card(_ metrics: NotchCardMetrics) -> some View {
@@ -110,7 +129,7 @@ struct NotchCardView: View {
             // between the glass and the text is drawn over the glass and flattens it into
             // a grey panel. Chosen by comparing variants side by side over a wallpaper, a
             // photo and a light window — regular glass reads as a milky frosted pane, not
-            // the iPhone's glass. The text shadow below carries legibility instead.
+            // the iPhone's glass.
             card.glassSurface(in: shape, clear: true) {
                 ZStack {
                     VisualEffectBackground()
@@ -156,8 +175,7 @@ struct NotchCardView: View {
                         .lineLimit(1)
                     Text(model.cue?.track.artist ?? "")
                         .font(.system(size: 11.5))
-                        // Brighter than `.secondary`, which disappears on clear glass.
-                        .foregroundStyle(.white.opacity(0.8))
+                        .foregroundStyle(secondaryText)
                         .lineLimit(1)
                 }
                 // Tapping the text or artwork brings Spotify forward; the button below
@@ -171,9 +189,14 @@ struct NotchCardView: View {
             upNext
         }
         // White text over see-through glass or a live blur needs its own shadow to stay
-        // readable when what is behind it is bright or busy. Glass needs less: it
-        // diffuses the backdrop more than vibrancy does.
-        .shadow(color: .black.opacity(usesGlass ? 0.35 : 0.5), radius: usesGlass ? 2 : 3, y: 1)
+        // readable when what is behind it is bright or busy. Dark glass needs less than
+        // vibrancy: it diffuses the backdrop more. Dark text on light glass needs none —
+        // a shadow would only smudge it.
+        .shadow(
+            color: .black.opacity(isLightGlass ? 0 : usesGlass ? 0.35 : 0.5),
+            radius: usesGlass ? 2 : 3,
+            y: 1
+        )
     }
 
     private var artwork: some View {
@@ -230,7 +253,7 @@ struct NotchCardView: View {
                     .lineLimit(1)
                     .truncationMode(.tail)
             }
-            .foregroundStyle(.white.opacity(0.75))
+            .foregroundStyle(secondaryText)
             .padding(.leading, Self.artworkSize + Self.artworkGap)
         }
     }
