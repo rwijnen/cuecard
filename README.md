@@ -55,8 +55,11 @@ it never eats a click meant for the menu bar.
 
 On macOS 26 and later the card, its skip button and the custom pieces of Settings are
 Liquid Glass (`glassEffect`). The card uses the **clear** variant — see-through, with the
-backdrop bent at the edges, as on the iPhone — and white text with a soft shadow. Regular
-glass, the default, reads as a milky frosted pane by comparison. It was chosen by rendering
+backdrop bent at the edges, as on the iPhone — and follows the system appearance: dark text
+on light glass in light mode, white text with a soft shadow in dark mode. Forcing it dark
+for white text everywhere turned it a flat grey over a light window, which is the most
+common thing under the notch. Regular glass, the default, reads as a milky frosted pane by
+comparison. It was chosen by rendering
 the options side by side over a wallpaper, a photo and a light window, which also showed
 what to avoid: any fill between the glass and the text is drawn *over* the glass and
 flattens it into a grey slab. macOS 27's own refinements (the darker edge, brighter
