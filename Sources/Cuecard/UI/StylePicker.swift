@@ -25,7 +25,8 @@ struct StylePicker: View {
             sketch(style)
                 .frame(height: 76)
                 .frame(maxWidth: .infinity)
-                .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 7))
+                .background(Color.primary.opacity(0.045),
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(spacing: 2) {
                 Text(style.title).font(.system(size: 12, weight: .semibold))
                 Text(style.subtitle)
@@ -37,16 +38,25 @@ struct StylePicker: View {
         }
         .padding(10)
         .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 10)
+        // Interactive glass, tinted with the accent colour when chosen. The ring stays
+        // on top in both looks: a tint alone is too subtle to carry the selection.
+        .glassSurface(
+            in: Self.cardShape,
+            tint: selected ? Color.accentColor.opacity(0.30) : nil,
+            interactive: true
+        ) {
+            Self.cardShape
                 .fill(selected ? Color.accentColor.opacity(0.14) : Color.primary.opacity(0.03))
-        )
+        }
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            Self.cardShape
                 .strokeBorder(selected ? Color.accentColor : Color.primary.opacity(0.12),
                               lineWidth: selected ? 1.5 : 1)
         )
+        .contentShape(Self.cardShape)
     }
+
+    private static let cardShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
 
     /// A miniature of the screen with the card in place — enough to tell the two apart.
     private func sketch(_ style: PresentationStyle) -> some View {

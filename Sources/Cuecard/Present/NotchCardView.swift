@@ -54,7 +54,10 @@ struct NotchCardView: View {
     /// lines up with the title rather than sitting under the cover.
     private static let artworkSize: CGFloat = 46
     private static let artworkGap: CGFloat = 11
-    private static let cornerRadius: CGFloat = 22
+    private static let cornerRadius: CGFloat = 24
+    /// Concentric with the card: its radius less the inset to the artwork, so the two
+    /// curves run parallel the way Liquid Glass shapes nest.
+    private static let artworkCornerRadius: CGFloat = 12
 
     var body: some View {
         let metrics = model.metrics
@@ -69,48 +72,72 @@ struct NotchCardView: View {
         .offset(y: model.revealed ? 0 : -metrics.totalHeight)
         .opacity(model.revealed ? 1 : 0)
         .animation(.spring(response: 0.42, dampingFraction: 0.78), value: model.revealed)
+        // The card sits against the notch, where light glass would look wrong whatever
+        // the system appearance is.
+        .environment(\.colorScheme, .dark)
     }
 
     private func card(_ metrics: NotchCardMetrics) -> some View {
         let shape = RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
-        return content
-            .padding(.horizontal, 14)
-            .padding(.vertical, 11)
-            .frame(width: metrics.cardWidth, height: metrics.bodyHeight, alignment: .top)
-            .background {
-                ZStack {
-                    if reduceTransparency || model.opaqueBackground {
-                        Color(red: 0.07, green: 0.08, blue: 0.08)
-                    } else {
-                        VisualEffectBackground()
-                        // The blur alone is not enough: over a bright wallpaper the white
-                        // text loses contrast. A gentle top-down scrim fixes that without
-                        // turning the card back into a flat panel.
-                        LinearGradient(
-                            colors: [.black.opacity(0.42), .black.opacity(0.24)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    }
-                }
-                .clipShape(shape)
-                .overlay {
-                    // A bright hairline on top and a darker one below reads as a lit edge,
-                    // which is what keeps a translucent panel from looking like a hole.
-                    shape.strokeBorder(
-                        LinearGradient(
-                            colors: [.white.opacity(0.22), .white.opacity(0.05)],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        ),
-                        lineWidth: 0.8
-                    )
-                }
-                // The window itself draws no shadow — it would trace the full rectangle,
-                // transparent notch strip included.
-                .shadow(color: .black.opacity(0.34), radius: 14, y: 6)
+        return surface(
+            content
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+                .frame(width: metrics.cardWidth, height: metrics.bodyHeight, alignment: .top),
+            in: shape
+        )
+        .onHover { model.onHover($0) }
+    }
+
+    /// Liquid Glass on macOS 26 and later; vibrancy with a scrim before that; an opaque
+    /// fill whenever transparency is unwanted.
+    @ViewBuilder
+    private func surface(_ card: some View, in shape: RoundedRectangle) -> some View {
+        if reduceTransparency || model.opaqueBackground {
+            card.background {
+                Color(red: 0.07, green: 0.08, blue: 0.08)
+                    .clipShape(shape)
+                    .overlay { litEdge(shape) }
+                    .shadow(color: .black.opacity(0.34), radius: 14, y: 6)
             }
-            .onHover { model.onHover($0) }
+        } else {
+            card
+                // The material alone is not enough: over a bright window the white text
+                // loses contrast, and glass comes out a flat mid-grey that a darker tint
+                // barely moves. A gentle top-down scrim between the material and the text
+                // fixes both, and makes the card read as an extension of the notch rather
+                // than a pane of the desktop.
+                .background {
+                    LinearGradient(
+                        colors: [.black.opacity(0.40), .black.opacity(0.23)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .clipShape(shape)
+                }
+                // Glass draws its own lit edge and shadow; vibrancy needs both added.
+                .glassSurface(in: shape, tint: .black.opacity(0.3)) {
+                    VisualEffectBackground()
+                        .clipShape(shape)
+                        .overlay { litEdge(shape) }
+                        // The window itself draws no shadow — it would trace the full
+                        // rectangle, transparent notch strip included.
+                        .shadow(color: .black.opacity(0.34), radius: 14, y: 6)
+                }
+        }
+    }
+
+    /// A bright hairline on top and a darker one below reads as a lit edge, which is what
+    /// keeps a translucent panel from looking like a hole. Glass has its own.
+    private func litEdge(_ shape: RoundedRectangle) -> some View {
+        shape.strokeBorder(
+            LinearGradient(
+                colors: [.white.opacity(0.22), .white.opacity(0.05)],
+                startPoint: .top,
+                endPoint: .bottom
+            ),
+            lineWidth: 0.8
+        )
     }
 
     private var content: some View {
@@ -156,9 +183,9 @@ struct NotchCardView: View {
             }
         }
         .frame(width: Self.artworkSize, height: Self.artworkSize)
-        .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: Self.artworkCornerRadius, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 7, style: .continuous)
+            RoundedRectangle(cornerRadius: Self.artworkCornerRadius, style: .continuous)
                 .strokeBorder(.white.opacity(0.12), lineWidth: 0.6)
         }
     }
@@ -169,12 +196,14 @@ struct NotchCardView: View {
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.95))
                 .frame(width: 32, height: 32)
-                .background {
+                .contentShape(Circle())
+                // Interactive glass, so the button answers the pointer the way system
+                // glass controls do.
+                .glassSurface(in: Circle(), interactive: true) {
                     Circle()
                         .fill(.white.opacity(0.16))
                         .overlay(Circle().strokeBorder(.white.opacity(0.14), lineWidth: 0.6))
                 }
-                .contentShape(Circle())
         }
         .buttonStyle(.plain)
         .help("Next track")

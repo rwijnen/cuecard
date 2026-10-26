@@ -10,6 +10,7 @@ struct SettingsView: View {
     @ObservedObject var preferences: Preferences
     @ObservedObject var auth: SpotifyAuth
     @ObservedObject var notifications: NotificationAvailability
+    @ObservedObject var updates: UpdateChecker
     let monitor: NowPlayingMonitor
 
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
@@ -57,6 +58,7 @@ struct SettingsView: View {
                 }
 
                 Button("Show Card Now") { monitor.showCurrentTrackNow() }
+                    .glassButtonStyle()
             }
 
             Section("What it shows") {
@@ -73,6 +75,10 @@ struct SettingsView: View {
 
             Section("Up next (optional)") {
                 SpotifyConnectionSection(preferences: preferences, auth: auth)
+            }
+
+            Section("Updates") {
+                UpdateSection(updates: updates, preferences: preferences)
             }
 
             Section("General") {

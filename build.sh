@@ -5,6 +5,8 @@
 #   ./build.sh              build build/Cuecard.app
 #   ./build.sh --install    also copy it to /Applications and launch it
 #   ./build.sh --debug      build the debug configuration
+#   ./build.sh --universal  build for Apple silicon and Intel (needs Xcode, not just the CLT)
+#   ./build.sh --version X  stamp X as the app version (the release workflow passes the tag)
 #
 set -euo pipefail
 
@@ -15,18 +17,28 @@ CONFIG=release
 BUNDLE_ID=com.robinwijnen.Cuecard
 
 DO_INSTALL=0
-for arg in "$@"; do
-  case "$arg" in
+ARCH_FLAGS=()
+VERSION=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --install) DO_INSTALL=1 ;;
     --debug) CONFIG=debug ;;
-    -h|--help) sed -n '2,8p' "$0"; exit 0 ;;
-    *) echo "unknown option: $arg" >&2; exit 64 ;;
+    --universal) ARCH_FLAGS=(--arch arm64 --arch x86_64) ;;
+    --version)
+      VERSION="${2:-}"
+      [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "--version needs a number like 1.2.0" >&2; exit 64; }
+      shift ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
+    *) echo "unknown option: $1" >&2; exit 64 ;;
   esac
+  shift
 done
 
-echo "==> Compiling ($CONFIG)"
-swift build -c "$CONFIG" --product Cuecard
-BIN="$(swift build -c "$CONFIG" --show-bin-path)"
+echo "==> Compiling ($CONFIG${ARCH_FLAGS:+, universal})"
+# `${ARCH_FLAGS[@]+...}`: an empty array is an unbound variable under `set -u` in the
+# bash 3.2 that macOS ships.
+swift build -c "$CONFIG" --product Cuecard ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"}
+BIN="$(swift build -c "$CONFIG" --show-bin-path ${ARCH_FLAGS[@]+"${ARCH_FLAGS[@]}"})"
 
 echo "==> Assembling app bundle"
 rm -rf "$APP"
@@ -41,7 +53,12 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 # bundle and restarting the daemons is not always enough.
 BUILD_NUMBER="$(date +%Y%m%d%H%M%S)"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$APP/Contents/Info.plist" >/dev/null
-echo "    build $BUILD_NUMBER"
+# The in-app updater compares this against the release tag and refuses a download whose
+# bundle says anything else, so a release build must carry the tag's version.
+if [[ -n "$VERSION" ]]; then
+  /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $VERSION" "$APP/Contents/Info.plist" >/dev/null
+fi
+echo "    version $(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Contents/Info.plist"), build $BUILD_NUMBER"
 
 echo "==> Building icon"
 ICONSET="$BUILD_DIR/AppIcon.iconset"
