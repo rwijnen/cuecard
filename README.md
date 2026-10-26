@@ -66,6 +66,17 @@ flattens it into a grey slab. macOS 27's own refinements (the darker edge, brigh
 highlights, and the Liquid Glass transparency slider in Settings) apply on top
 automatically.
 
+The part that took longest to find: **glass only renders live in a window with the key
+appearance.** In any other window macOS draws its inactive look — a flat, frosted grey —
+whatever the variant. The card's panel is deliberately never key, so it never takes
+keyboard focus from what you are typing in, and so for two releases it only ever showed
+that frosted grey. Overriding `isKeyWindow`, setting SwiftUI's `appearsActive`, and
+pinning `NSGlassEffectView`'s private `_subduedState` all leave it frosted. What works is
+`acquireKeyAppearance`, the private AppKit call popovers use to look active beside their
+parent: the window gets the key appearance without becoming key. Measured, the frontmost
+app keeps keyboard focus and Cuecard stays inactive. It is looked up at runtime, so if a
+future macOS removes it the card falls back to the frosted look instead of failing.
+
 Before macOS 26 the card is dark vibrancy (`NSVisualEffectView`, `.behindWindow`) with a
 gentle scrim so white text stays legible against a bright wallpaper, and an opaque fill
 replaces either look under Reduce Transparency. One non-obvious requirement for the
