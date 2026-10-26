@@ -17,6 +17,7 @@ final class NotchPresenter: Presenter {
     private var panel: NSPanel?
     private var retractTask: Task<Void, Never>?
     private var isHovered = false
+    private var activationObserver: NSObjectProtocol?
 
     /// Matches the spring in `NotchCardView`, so the window is not ordered out from
     /// under the animation.
@@ -70,6 +71,7 @@ final class NotchPresenter: Presenter {
         (panel.contentView as? PassthroughContainer)?.transparentTopHeight =
             model.metrics.transparentTopHeight
         panel.orderFrontRegardless()
+        Self.giveActiveAppearance(panel)
 
         // One tick later, so the window is on screen before the card slides out of it.
         if !model.revealed {
@@ -119,8 +121,40 @@ final class NotchPresenter: Presenter {
         ])
         panel.contentView = container
 
+        // Another app coming forward can take the active appearance back; restore it
+        // while the card is on screen.
+        activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let panel = self?.panel, panel.isVisible else { return }
+                Self.giveActiveAppearance(panel)
+            }
+        }
+
         self.panel = panel
         return panel
+    }
+
+    /// Liquid Glass only renders live — clear, refracting what is behind it — in a window
+    /// with the *key appearance*. Without it, it falls back to its inactive look: a flat,
+    /// frosted grey. This panel is never key, deliberately, so it never takes keyboard
+    /// focus from whatever the user is typing in.
+    ///
+    /// `acquireKeyAppearance` gives the window the key appearance without making it key:
+    /// measured, the app stays inactive, the frontmost app keeps keyboard focus, and the
+    /// glass renders live. It is private AppKit API — the mechanism popovers and child
+    /// windows use to look active alongside their parent — so it is looked up at runtime.
+    /// If a future macOS removes it, the card keeps the frosted look rather than failing.
+    ///
+    /// Overriding `isKeyWindow`, setting SwiftUI's `appearsActive`, and pinning
+    /// `NSGlassEffectView`'s `_subduedState` were all tried first; none changes the glass.
+    private static func giveActiveAppearance(_ panel: NSPanel) {
+        let selector = NSSelectorFromString("acquireKeyAppearance")
+        guard panel.responds(to: selector) else { return }
+        panel.perform(selector)
     }
 
     private func scheduleRetract() {
