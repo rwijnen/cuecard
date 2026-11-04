@@ -55,8 +55,10 @@ final class NotchPresenter: Presenter {
         model.metrics = Self.metrics(
             for: screen,
             cardWidth: model.metrics.cardWidth,
+            hasProgress: PlaybackProgress.forDisplay(of: cue.track, latest: cue.progress) != nil,
             hasUpNext: cue.next != nil
         )
+        model.progress = cue.progress
         model.cue = cue
 
         let frame = NotchGeometry.cardFrame(
@@ -81,6 +83,12 @@ final class NotchPresenter: Presenter {
     }
 
     func dismiss() { retract(after: 0) }
+
+    /// A new sample for whatever is playing, so a card that is up — held open under the
+    /// pointer, say — stops on a pause and catches up after a seek.
+    func updateProgress(_ progress: PlaybackProgress?) {
+        model.progress = progress
+    }
 
     // MARK: - Window
 
@@ -187,12 +195,15 @@ final class NotchPresenter: Presenter {
             ?? NSScreen.screens[0]
     }
 
-    static func metrics(for screen: NSScreen, cardWidth: CGFloat, hasUpNext: Bool) -> NotchCardMetrics {
+    static func metrics(
+        for screen: NSScreen,
+        cardWidth: CGFloat,
+        hasProgress: Bool,
+        hasUpNext: Bool
+    ) -> NotchCardMetrics {
         var metrics = NotchCardMetrics()
         metrics.cardWidth = min(cardWidth, screen.frame.width - 32)
-        metrics.bodyHeight = hasUpNext
-            ? NotchCardMetrics.bodyHeightWithUpNext
-            : NotchCardMetrics.bodyHeightWithoutUpNext
+        metrics.bodyHeight = NotchCardMetrics.bodyHeight(hasProgress: hasProgress, hasUpNext: hasUpNext)
         metrics.notchStripHeight = screen.safeAreaInsets.top
         metrics.notchWidth = NotchGeometry.notchWidth(
             auxiliaryTopLeft: screen.auxiliaryTopLeftArea,

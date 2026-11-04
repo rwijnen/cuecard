@@ -32,8 +32,12 @@ or Intel.
 and later, and live vibrancy before that — both sample the desktop behind the card, which cannot be
 captured offscreen.*
 
-The menu bar icon's menu shows the same cover, with title, artist and album, whichever
-style is chosen. Clicking it brings Spotify forward.
+Under the title, the notch card shows a progress bar with the song's length on the left
+and the time left counting down on the right. It is left out when Spotify does not report
+a length, as with some local files and podcast episodes.
+
+The menu bar icon's menu shows the same cover, with title, artist, album and progress,
+whichever style is chosen. Clicking it brings Spotify forward.
 
 ## Two places the card can appear
 

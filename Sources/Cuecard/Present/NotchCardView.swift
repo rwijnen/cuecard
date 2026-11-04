@@ -4,13 +4,24 @@ import SwiftUI
 /// card on an external display is laid out for that display.
 struct NotchCardMetrics: Equatable {
     var cardWidth: CGFloat = 428
-    /// Sized to the content: artwork row, the up-next line, and the padding around them.
-    /// Any more and the card has a dead strip along the bottom.
-    var bodyHeight: CGFloat = Self.bodyHeightWithUpNext
-    static let bodyHeightWithUpNext: CGFloat = 92
-    /// Just the artwork row and its padding, for a cue with no up-next line — the full
-    /// height would leave a third of the card empty.
-    static let bodyHeightWithoutUpNext: CGFloat = 70
+    /// Sized to the content: artwork row, the progress and up-next lines when there are
+    /// any, and the padding around them. Any more and the card has a dead strip along the
+    /// bottom.
+    var bodyHeight: CGFloat = Self.bodyHeight(hasProgress: false, hasUpNext: true)
+
+    /// Just the artwork row and its padding.
+    private static let artworkRowHeight: CGFloat = 70
+    /// Each optional line below it, with the spacing above it.
+    private static let progressLineHeight: CGFloat = 19
+    private static let upNextLineHeight: CGFloat = 22
+
+    /// A cue without a progress or up-next line must not keep their room — at the full
+    /// height a third of the card would be empty.
+    static func bodyHeight(hasProgress: Bool, hasUpNext: Bool) -> CGFloat {
+        artworkRowHeight
+            + (hasProgress ? progressLineHeight : 0)
+            + (hasUpNext ? upNextLineHeight : 0)
+    }
     /// Height of the region the system reserves at the top of the display — the physical
     /// notch. Zero on displays without one.
     var notchStripHeight: CGFloat = 0
@@ -32,6 +43,9 @@ struct NotchCardMetrics: Equatable {
 @MainActor
 final class NotchCardModel: ObservableObject {
     @Published var cue: Cue?
+    /// The latest playback sample. Kept apart from `cue` because it changes while the card
+    /// is up — a pause, a seek — and the rest of the cue does not.
+    @Published var progress: PlaybackProgress?
     @Published var metrics = NotchCardMetrics()
     /// Drives the slide-out animation. Set after the window is on screen so the card is
     /// seen to emerge from the notch rather than appearing already out.
@@ -186,6 +200,7 @@ struct NotchCardView: View {
                 Spacer(minLength: 6)
                 skipButton
             }
+            progressLine
             upNext
         }
         // White text over see-through glass or a live blur needs its own shadow to stay
@@ -238,6 +253,20 @@ struct NotchCardView: View {
         .buttonStyle(.plain)
         .help("Next track")
         .accessibilityLabel("Next track")
+    }
+
+    @ViewBuilder
+    private var progressLine: some View {
+        if let track = model.cue?.track,
+           let progress = PlaybackProgress.forDisplay(of: track, latest: model.progress) {
+            PlaybackProgressRow(
+                progress: progress,
+                fontSize: 9.5,
+                labelStyle: secondaryText,
+                barStyle: isLightGlass ? AnyShapeStyle(.primary) : AnyShapeStyle(.white)
+            )
+            .padding(.leading, Self.artworkSize + Self.artworkGap)
+        }
     }
 
     @ViewBuilder
