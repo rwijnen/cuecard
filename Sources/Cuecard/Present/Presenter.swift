@@ -12,6 +12,9 @@ struct Cue {
     var artworkFile: URL?
     /// Decoded image, for the notch card. Also kept for the menu, whatever the style.
     var artworkImage: NSImage?
+    /// Where playback stood when the cue was made, for the notch card's progress line.
+    /// A notification is a still picture and has no use for it.
+    var progress: PlaybackProgress?
 }
 
 /// The two presentation styles behind one door, so `NowPlayingMonitor` does not care

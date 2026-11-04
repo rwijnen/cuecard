@@ -10,6 +10,8 @@ struct NowPlayingMenuHeader: View {
     let track: Track
     let artwork: NSImage?
     let isPaused: Bool
+    /// `nil` when the track's length is unknown.
+    var progress: PlaybackProgress?
     var onActivate: () -> Void = {}
 
     /// Wide enough for a typical title on two lines; the menu takes its width from the
@@ -44,6 +46,10 @@ struct NowPlayingMenuHeader: View {
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
                         .lineLimit(1)
+                }
+                if let progress {
+                    PlaybackProgressRow(progress: progress, fontSize: 10)
+                        .padding(.top, 4)
                 }
             }
             Spacer(minLength: 0)

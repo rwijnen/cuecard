@@ -89,7 +89,8 @@ final class MenuBarController: NSObject, NSMenuDelegate {
         let header = NowPlayingMenuHeader(
             track: track,
             artwork: monitor.currentArtwork,
-            isPaused: monitor.state == .paused
+            isPaused: monitor.state == .paused,
+            progress: PlaybackProgress.forDisplay(of: track, latest: monitor.progress)
         ) { [weak self, weak item] in
             // A view item does not close the menu when clicked; it has to be asked.
             item?.menu?.cancelTracking()

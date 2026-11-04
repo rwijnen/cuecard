@@ -17,6 +17,9 @@ final class NowPlayingMonitor: ObservableObject {
     /// shows it either way.
     @Published private(set) var currentArtwork: NSImage?
     @Published private(set) var state: PlayerState = .notRunning
+    /// The latest playback sample, from any snapshot — broadcast or poll — that names a
+    /// track. Views extrapolate from it between samples.
+    @Published private(set) var progress: PlaybackProgress?
 
     /// Exposed so Settings and the wizard can explain a fallback rather than let the user
     /// wonder why nothing appears.
@@ -70,6 +73,7 @@ final class NowPlayingMonitor: ObservableObject {
             let snapshot = await SpotifyScripting.snapshotAsync()
             state = snapshot.state
             current = snapshot.track
+            updateProgress(from: snapshot)
             detector.prime(snapshot)
             await refreshUpNext()
             if preferences.showArtwork, let track = snapshot.track {
@@ -110,6 +114,7 @@ final class NowPlayingMonitor: ObservableObject {
         Task { @MainActor in
             let snapshot = await SpotifyScripting.snapshotAsync()
             state = snapshot.state
+            updateProgress(from: snapshot)
             guard let track = snapshot.track else {
                 present(Cue(track: Self.sampleTrack, next: Self.sampleNext))
                 return
@@ -123,6 +128,7 @@ final class NowPlayingMonitor: ObservableObject {
 
     private func handle(_ snapshot: PlaybackSnapshot) {
         state = snapshot.state
+        updateProgress(from: snapshot)
         if snapshot.state != .playing, snapshot.track == nil {
             current = nil
             currentArtwork = nil
@@ -132,6 +138,30 @@ final class NowPlayingMonitor: ObservableObject {
         Log.spotify.info("announcing \(track.oneLine, privacy: .public)")
         announceTask?.cancel()
         announceTask = Task { @MainActor [weak self] in await self?.announce(track) }
+    }
+
+    /// Records where playback stands, and passes it to a notch card that may be up.
+    private func updateProgress(from snapshot: PlaybackSnapshot) {
+        let now = Date()
+        guard let track = snapshot.track, let duration = track.duration, duration > 0 else {
+            progress = nil
+            notchPresenter?.updateProgress(nil)
+            return
+        }
+        // A snapshot without a position keeps the running clock for the same track rather
+        // than throwing it back to the start.
+        let position = snapshot.position
+            ?? (progress?.trackIdentity == track.identity ? progress?.elapsed(at: now) : nil)
+            ?? 0
+        let sample = PlaybackProgress(
+            trackIdentity: track.identity,
+            duration: duration,
+            position: position,
+            sampledAt: now,
+            isPlaying: snapshot.state == .playing
+        )
+        progress = sample
+        notchPresenter?.updateProgress(sample)
     }
 
     private func poll() async {
@@ -191,6 +221,8 @@ final class NowPlayingMonitor: ObservableObject {
     }
 
     private func present(_ cue: Cue) {
+        var cue = cue
+        cue.progress = progress
         let presenter = activePresenter()
         presenter.onSkip = { [weak self] in self?.skip() }
         presenter.present(cue)
@@ -237,7 +269,8 @@ final class NowPlayingMonitor: ObservableObject {
         id: "sample",
         title: "Teardrop",
         artist: "Massive Attack",
-        album: "Mezzanine"
+        album: "Mezzanine",
+        duration: 330
     )
     static let sampleNext = Track(id: "sample-next", title: "Inertia Creeps", artist: "Massive Attack")
 }
